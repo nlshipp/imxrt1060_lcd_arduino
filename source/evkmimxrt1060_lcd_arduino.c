@@ -42,7 +42,7 @@
 
 extern volatile uint32_t g_systickCounter;
 
-extern const char font8x8_basic[128][8];
+extern const unsigned char font8x8_basic[128][8];
 
 /* The PIN status */
 volatile bool g_pinSet = false;
@@ -140,9 +140,9 @@ int main(void) {
     cpuFreq = CLOCK_GetFreq(kCLOCK_CpuClk) / 6;
 
     /* Force the counter to be placed into memory. */
-    volatile static int i = 0, pin = 0 ;
+//    volatile static int i = 0, pin = 0 ;
 
-    uint32_t *ptr = (uint32_t *)EXAMPLE_SEMC_START_ADDRESS;
+//    uint32_t *ptr = (uint32_t *)EXAMPLE_SEMC_START_ADDRESS;
 
     XSCL = 0;
     YSCL = 0;
@@ -246,11 +246,26 @@ void loop() {
 }
 
 const char testString[] = "\001This is a test.\002 ";
+const char loremIpsum[] = "\002Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque congue dolor augue, ac accumsan nunc luctus sit amet. Aenean vulputate id sapien sed eleifend. Curabitur et accumsan tortor. Vivamus finibus magna ac sapien congue, vitae ullamcorper urna sollicitudin. Pellentesque semper ornare tincidunt. Quisque id efficitur ipsum. Nulla facilisi. Maecenas vitae tellus a odio tempor semper eu eget lectus. Mauris hendrerit cursus laoreet. Integer vel ligula orci. Nam accumsan nisl porta mi lobortis, at accumsan lorem luctus. Sed ac iaculis orci. Phasellus semper tincidunt enim vel volutpat. Mauris pharetra, lectus sit amet euismod viverra, est nisl maximus nisl, in pulvinar nulla ligula quis dolor. Nam efficitur dui sem, quis dapibus lectus semper a. "
+		"In convallis tincidunt vehicula. Donec sit amet ligula consequat, egestas odio et, posuere nisl. Vestibulum sollicitudin ante quis posuere auctor. Nunc risus orci, lobortis id eros in, tristique elementum justo. Duis ut lacus vitae orci laoreet luctus. Curabitur eu lectus eu odio sagittis commodo. Curabitur rutrum faucibus accumsan. Nunc felis orci, consectetur sit amet ipsum sed, congue elementum felis. "
+		"Vivamus egestas pharetra nisi, eget semper dui commodo in. Duis vel enim placerat erat lobortis semper. Etiam non odio sit amet ex convallis tempor ac vitae neque. Ut hendrerit augue in cursus tempor. Integer viverra tellus eget nisl accumsan pharetra. Praesent lacinia congue magna ut volutpat. Suspendisse nec lobortis tellus, eu imperdiet erat. Phasellus euismod lectus ut sem gravida, eu vestibulum velit condimentum. Quisque sodales eu turpis ultrices mattis. Ut laoreet at felis vel cursus. "
+		"Aenean commodo sollicitudin mauris, quis auctor leo molestie ut. Proin ut ultrices tellus. Nunc diam augue, volutpat non elementum a, facilisis a nisl. Quisque euismod vulputate est, a semper quam luctus vel. Aenean at tellus felis. Fusce nec quam non sem laoreet tempor. Aliquam viverra sagittis risus. Pellentesque vehicula est et neque luctus aliquet. Aliquam non sem metus. Vestibulum a nulla quis odio venenatis sagittis. Vivamus ac quam dapibus sapien feugiat tincidunt. Morbi faucibus, nulla consectetur mollis imperdiet, felis justo laoreet enim, id tincidunt purus felis et tellus. Suspendisse aliquet neque nec leo faucibus pretium. Sed eu leo non nunc tristique iaculis eget vitae justo. Praesent pretium ligula ut lectus mattis accumsan. "
+		"Nam efficitur, tortor quis ornare lacinia, enim massa fermentum eros, nec pretium sem tortor nec risus. Duis quam lectus, eleifend placerat lacus malesuada, mattis ultrices ligula. Integer molestie metus vitae rutrum lacinia. Aliquam tempor enim odio, at vehicula lectus dapibus ac. Fusce at lacus ligula. Quisque consectetur elementum enim, at gravida est sollicitudin nec. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nam et pharetra lacus. Phasellus semper nec erat vitae eleifend. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse lacinia eu dolor ut hendrerit. Proin quis finibus purus. Donec rhoncus, augue quis vulputate rutrum, dolor odio tincidunt felis, vel feugiat ex enim faucibus ligula. Morbi fringilla odio turpis, a imperdiet nibh suscipit sed. Donec arcu mauris, rutrum a lorem ac, mattis suscipit felis. Sed non maximus velit, sed ultrices orci.";
 const int testLen = sizeof(testString);
+const int loremLen = sizeof(loremIpsum);
+
+char testChar(unsigned int x, unsigned y)
+{
+	if (y * 60 + x < loremLen)
+		return loremIpsum[y * 60 + x];
+	else
+		return 0;
+}
 
 void text() {
     register uint32_t portVal;
     register uint32_t temp;
+    int refresh = 0;
 
     while (1) {
 
@@ -258,19 +273,23 @@ void text() {
             portVal = *PORT;
             portVal &= ~(BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI);
             portVal |= FR;
-        	// foreach line clock out a 2x2 pattern. First 16 bits aren't visible.
+        	// Output a test string.
             for (XSCL = 0; XSCL < 256; XSCL ++) {
                 temp = portVal;
                 if (XSCL >= 16)
                 {
-                	if (((XSCL - 16)/8) < testLen)
-                	{
-						if (font8x8_basic[testString[(XSCL - 16) / 8]][YSCL % 8] & (1 << (XSCL % 8)))
-							temp |= BIT_D0;
-                	}
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
+						temp |= BIT_D0;
+
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
+						temp |= BIT_D1;
+
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, (YSCL + 100) / 8)][(YSCL + 100) % 8] & (1 << (XSCL % 8)))
+						temp |= BIT_D2;
+
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, (YSCL + 100) / 8)][(YSCL + 100) % 8] & (1 << (XSCL % 8)))
+						temp |= BIT_D3;
                 }
-                if (((XSCL & 0x02) == (YSCL & 0x02)) && ((XSCL >= 16) && (XSCL < 256)) && (YSCL <= (XSCL - 15)))
-                    temp |= BIT_D1 | BIT_D2 | BIT_D3;
 
                 temp |= BIT_XSCL;
                 *PORT = temp;
@@ -279,7 +298,8 @@ void text() {
                 // Data latched on falling edge of XSCL
                 temp &= ~BIT_XSCL;
                 *PORT = temp;
-                SDK_DelayAtLeastUs(1U, cpuFreq);
+                if (XSCL == 255)
+                	SDK_DelayAtLeastUs(1U, cpuFreq);
             }
 
             // at end of row, advance the row clock (YSCL)
@@ -295,15 +315,20 @@ void text() {
             portVal |= BIT_YSCL;
             *PORT = portVal;
             SDK_DelayAtLeastUs(1U, cpuFreq);
+        } // for (YSCL)
 
+        refresh ++;
+        if (refresh == 1)
+        {
             FR ^= BIT_FR;
+            refresh = 0;
         }
-    }
+    } // while (1)
 }
 
 // Constant: font8x8_basic
 // Contains an 8x8 font map for unicode points U+0000 - U+007F (basic latin)
-const char font8x8_basic[128][8] = {
+const unsigned char font8x8_basic[128][8] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0000 (nul)
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},   // U+0001
     { 0xff, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xff},   // U+0002
