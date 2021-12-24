@@ -77,6 +77,11 @@ void BOARD_InitBootPins(void);
 #define BOARD_INITPINS_INT2_COMBO_PORT                                     GPIO1   /*!< PORT device name: GPIO1 */
 #define BOARD_INITPINS_INT2_COMBO_PIN                                        11U   /*!< GPIO1 pin index: 11 */
 
+/* GPIO_AD_B1_00 (coord J11), I2C1_SCL/CSI_I2C_SCL/J35[20]/J23[6]/U13[17]/U32[4] */
+#define BOARD_INITPINS_CSI_I2C_SCL_PERIPHERAL                            FLEXIO3   /*!< Device name: FLEXIO3 */
+#define BOARD_INITPINS_CSI_I2C_SCL_SIGNAL                                     IO   /*!< FLEXIO3 signal: IO */
+#define BOARD_INITPINS_CSI_I2C_SCL_CHANNEL                                    0U   /*!< FLEXIO3 IO channel: 00 */
+
 
 /*!
  * @brief Configures pin routing and optionally pin electrical features.
