@@ -305,29 +305,39 @@ void black() {
         }
     }  // while (1)
 
-    // advance the row clock (YSCL) to deactivate the line strobe
+    // Pull the row clock (YSCL) low to output the last line
     portVal = *PORT;
     portVal &= ~(BIT_DI | BIT_YSCL);
     *PORT = portVal;
     fiveCycleDelay(5);
 
-    // data latched on rising edge of YSCL
+    // cycle row clock again to clear the row lines
     portVal |= BIT_YSCL;
     *PORT = portVal;
     fiveCycleDelay(5);
 
+    // output lines are driven on falling edge of YSCL
     portVal = *PORT;
     portVal &= ~(BIT_DI | BIT_YSCL);
     *PORT = portVal;
     fiveCycleDelay(5);
 
-    // data latched on rising edge of YSCL
-    portVal |= BIT_YSCL;
-    *PORT = portVal;
-    fiveCycleDelay(5);
+    // wait for switch to be released
+    while (!GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN)) {
+    	portVal = *PORT;
+        portVal &= ~(BIT_ALL);
+        portVal |= FR;
+        *PORT = portVal;
 
-
-    while (!GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN));
+        SDK_DelayAtLeastUs(200U, cpuFreq);
+        // toggle refresh signal
+        refresh ++;
+        if (refresh == 10)
+        {
+            FR ^= BIT_FR;
+            refresh = 0;
+        }
+    }
 }
 
 
@@ -379,9 +389,9 @@ void checker() {
 }
 
 const char testString[] = "\001This is a test.\002 ";
-const char loremIpsum[] = "\002Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque congue dolor augue, ac accumsan nunc luctus sit amet. Aenean vulputate id sapien sed eleifend. Curabitur et accumsan tortor. Vivamus finibus magna ac sapien congue, vitae ullamcorper urna sollicitudin. Pellentesque semper ornare tincidunt. Quisque id efficitur ipsum. Nulla facilisi. Maecenas vitae tellus a odio tempor semper eu eget lectus. Mauris hendrerit cursus laoreet. Integer vel ligula orci. Nam accumsan nisl porta mi lobortis, at accumsan lorem luctus. Sed ac iaculis orci. Phasellus semper tincidunt enim vel volutpat. Mauris pharetra, lectus sit amet euismod viverra, est nisl maximus nisl, in pulvinar nulla ligula quis dolor. Nam efficitur dui sem, quis dapibus lectus semper a. "
+const char loremIpsum[] = "\003Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque congue dolor augue, ac accumsan nunc luctus sit amet. Aenean vulputate id sapien sed eleifend. Curabitur et accumsan tortor. Vivamus finibus magna ac sapien congue, vitae ullamcorper urna sollicitudin. Pellentesque semper ornare tincidunt. Quisque id efficitur ipsum. Nulla facilisi. Maecenas vitae tellus a odio tempor semper eu eget lectus. Mauris hendrerit cursus laoreet. Integer vel ligula orci. Nam accumsan nisl porta mi lobortis, at accumsan lorem luctus. Sed ac iaculis orci. Phasellus semper tincidunt enim vel volutpat. Mauris pharetra, lectus sit amet euismod viverra, est nisl maximus nisl, in pulvinar nulla ligula quis dolor. Nam efficitur dui sem, quis dapibus lectus semper a. "
 		"In convallis tincidunt vehicula. Donec sit amet ligula consequat, egestas odio et, posuere nisl. Vestibulum sollicitudin ante quis posuere auctor. Nunc risus orci, lobortis id eros in, tristique elementum justo. Duis ut lacus vitae orci laoreet luctus. Curabitur eu lectus eu odio sagittis commodo. Curabitur rutrum faucibus accumsan. Nunc felis orci, consectetur sit amet ipsum sed, congue elementum felis. "
-		"Vivamus egestas pharetra nisi, eget semper dui commodo in. Duis vel enim placerat erat lobortis semper. Etiam non odio sit amet ex convallis tempor ac vitae neque. Ut hendrerit augue in cursus tempor. Integer viverra tellus eget nisl accumsan pharetra. Praesent lacinia congue magna ut volutpat. Suspendisse nec lobortis tellus, eu\002imperdiet erat. Phasellus euismod lectus ut sem gravida, eu vestibulum velit condimentum. Quisque sodales eu turpis ultrices mattis. Ut laoreet at felis vel cursus. "
+		"Vivamus egestas pharetra nisi, eget semper dui commodo in. Duis vel enim placerat erat lobortis semper. Etiam non odio sit amet ex convallis tempor ac vitae neque. Ut hendrerit augue in cursus tempor. Integer viverra tellus eget nisl accumsan pharetra. Praesent lacinia congue magna ut volutpat. Suspendisse nec lobortis tellus, eu\003imperdiet erat. Phasellus euismod lectus ut sem gravida, eu vestibulum velit condimentum. Quisque sodales eu turpis ultrices mattis. Ut laoreet at felis vel cursus. "
 		"Aenean commodo sollicitudin mauris, quis auctor leo molestie ut. Proin ut ultrices tellus. Nunc diam augue, volutpat non elementum a, facilisis a nisl. Quisque euismod vulputate est, a semper quam luctus vel. Aenean at tellus felis. Fusce nec quam non sem laoreet tempor. Aliquam viverra sagittis risus. Pellentesque vehicula est et neque luctus aliquet. Aliquam non sem metus. Vestibulum a nulla quis odio venenatis sagittis. Vivamus ac quam dapibus sapien feugiat tincidunt. Morbi faucibus, nulla consectetur mollis imperdiet, felis justo laoreet enim, id tincidunt purus felis et tellus. Suspendisse aliquet neque nec leo faucibus pretium. Sed eu leo non nunc tristique iaculis eget vitae justo. Praesent pretium ligula ut lectus mattis accumsan. "
 		"Nam efficitur, tortor quis ornare lacinia, enim massa fermentum eros, nec pretium sem tortor nec risus. Duis quam lectus, eleifend placerat lacus malesuada, mattis ultrices ligula. Integer molestie metus vitae rutrum lacinia. Aliquam tempor enim odio, at vehicula lectus dapibus ac. Fusce at lacus ligula. Quisque consectetur elementum enim, at gravida est sollicitudin nec. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nam et pharetra lacus. Phasellus semper nec erat vitae eleifend. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse lacinia eu dolor ut hendrerit. Proin quis finibus purus. Donec rhoncus, augue quis vulputate rutrum, dolor odio tincidunt felis, vel feugiat ex enim faucibus ligula. Morbi fringilla odio turpis, a imperdiet nibh suscipit sed. Donec arcu mauris, rutrum a lorem ac, mattis suscipit felis. Sed non maximus velit, sed ultrices orci.";
 const int testLen = sizeof(testString);
@@ -488,29 +498,39 @@ void text() {
 
     } // while (1)
 
-    // advance the row clock (YSCL) to deactivate the line strobe
+    // Pull the row clock (YSCL) low to output the last line
     portVal = *PORT;
     portVal &= ~(BIT_DI | BIT_YSCL);
     *PORT = portVal;
     fiveCycleDelay(5);
 
-    // data latched on rising edge of YSCL
+    // cycle row clock again to clear the row lines
     portVal |= BIT_YSCL;
     *PORT = portVal;
     fiveCycleDelay(5);
 
+    // output lines are driven on falling edge of YSCL
     portVal = *PORT;
     portVal &= ~(BIT_DI | BIT_YSCL);
     *PORT = portVal;
     fiveCycleDelay(5);
 
-    // data latched on rising edge of YSCL
-    portVal |= BIT_YSCL;
-    *PORT = portVal;
-    fiveCycleDelay(5);
+    // wait for switch to be released
+    while (!GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN)) {
+    	portVal = *PORT;
+        portVal &= ~(BIT_ALL);
+        portVal |= FR;
+        *PORT = portVal;
 
-
-    while (!GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN));
+        SDK_DelayAtLeastUs(200U, cpuFreq);
+        // toggle refresh signal
+        refresh ++;
+        if (refresh == 10)
+        {
+            FR ^= BIT_FR;
+            refresh = 0;
+        }
+    }
 }
 
 // Constant: font8x8_basic
@@ -519,7 +539,7 @@ const unsigned char font8x8_basic[128][8] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0000 (nul)
     { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},   // U+0001
     { 0xff, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0xff},   // U+0002
-    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0003
+    { 0xff, 0x81, 0xbd, 0xa5, 0xa5, 0xbd, 0x81, 0xff},   // U+0003
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0004
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0005
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},   // U+0006
