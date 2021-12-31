@@ -380,6 +380,22 @@ __attribute__((always_inline)) inline char testChar(unsigned int x, unsigned y)
 		return 0;
 }
 
+
+__attribute__((always_inline)) inline void fiveCycleDelay(uint32_t count)
+{
+    __ASM volatile("    MOV    R0, %0" : : "r"(count));
+    __ASM volatile(
+        "1:                          \n"
+#if defined(__GNUC__) && !defined(__ARMCC_VERSION)
+        "    SUB    R0, R0, #1          \n"
+#else
+        "    SUBS   R0, R0, #1          \n"
+#endif
+        "    CMP    R0, #0              \n"
+
+        "    BNE    1b                \n");
+}
+
 void text() {
     register uint32_t portVal;
     register uint32_t temp;
@@ -388,7 +404,7 @@ void text() {
 
     while (1) {
 
-        for (YSCL = 0; YSCL < 101; YSCL ++) {
+        for (YSCL = 0; YSCL < 100; YSCL ++) {
             portVal = *PORT;
             portVal &= ~(BIT_ALL);
             portVal |= FR;
@@ -414,24 +430,21 @@ void text() {
                 	if (font8x8_basic[(int)testChar(xoffset + 30, (YSCL + 100) / 8)][yidx2] & xmask)
 						temp |= BIT_D3;
                 }
+                else
+                {
+                    fiveCycleDelay(5);
+                }
 
                 temp |= BIT_XSCL;
                 *PORT = temp;
-//                SDK_DelayAtLeastUs(1U, cpuFreq);
-                // do some work to delay a bit
-            	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
-					temp |= BIT_D0;
-
-            	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
-					temp |= BIT_D1;
-            	// end delay
+                fiveCycleDelay(5);
 
                 // Data latched on falling edge of XSCL
                 temp &= ~BIT_XSCL;
                 *PORT = temp;
-                if (XSCL == 255)
-                	SDK_DelayAtLeastUs(1U, cpuFreq);
             }
+
+            fiveCycleDelay(5);
 
             // at end of row, advance the row clock (YSCL)
             portVal = *PORT;
@@ -440,16 +453,16 @@ void text() {
                 portVal |= BIT_DI;
             }
             *PORT = portVal;
-            SDK_DelayAtLeastUs(1U, cpuFreq);
+            fiveCycleDelay(5);
 
             // data latched on rising edge of YSCL
             portVal |= BIT_YSCL;
             *PORT = portVal;
-            SDK_DelayAtLeastUs(1U, cpuFreq);
+            fiveCycleDelay(5);
 
             // toggle refresh signal
             refresh ++;
-            if (refresh == 33)
+            if (refresh == 100)
             {
                 FR ^= BIT_FR;
                 refresh = 0;
