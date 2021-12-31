@@ -96,6 +96,8 @@ extern status_t BOARD_InitSEMC(void);
 extern void SysTick_DelayTicks(uint32_t n);
 void loop();
 void text();
+void checker();
+void black();
 
 /*
  * Arduino pins D0-D7
@@ -189,9 +191,8 @@ int main(void) {
         PRINTF("\r\n SEMC SDRAM Init Failed\r\n");
     }
 #endif
-    // get CPU freq and divide by 3 to get 0.5us resolution
-    cpuFreq = CLOCK_GetFreq(kCLOCK_CpuClk) / 6;
-
+    // get CPU freq and divide by 3 to get 0.25us resolution
+    cpuFreq = CLOCK_GetFreq(kCLOCK_CpuClk) / 3;
     /* Force the counter to be placed into memory. */
 //    volatile static int i = 0, pin = 0 ;
 
@@ -212,8 +213,6 @@ int main(void) {
     BIT_D3 = digitalPinToBitMask(LCD_D3);
     BIT_FR = digitalPinToBitMask(LCD_FR);
 
-    BIT_ALL = BIT_DI | BIT_YSCL | BIT_XSCL | BIT_D0 | BIT_FR;
-
     /* Set systick reload value to generate 1ms interrupt */
     if (SysTick_Config(SystemCoreClock / 1000U))
     {
@@ -224,7 +223,6 @@ int main(void) {
     flexio_pwm_init(DEMO_FLEXIO_FREQUENCY, 50);
     flexio_pwm_start();
 
-    text();
 #if 0
     i = 1;
     pin = 0;
@@ -246,6 +244,8 @@ int main(void) {
     }
 #endif
 
+    loop();
+
     return 0 ;
 }
 
@@ -254,18 +254,81 @@ int main(void) {
  * At a 60Hz display rate, Trefresh= 16,666 uS
  * 128 lines = 130uS per line
  * 256 pixels/line = 0.5uS
+ *
+ * SDK_DelayAtLeastUs(1, cpuFreq) should delay 0.25us if cpuFreq is multiplied by 4
  */
-
 void loop() {
+//	black();
+//  checker();
+	text();
+}
+
+void black() {
     register uint32_t portVal;
     register uint32_t temp;
 
-    while (1) {
+    BIT_ALL = BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI;
 
+    portVal = *PORT;
+    portVal &= ~(BIT_ALL);
+    portVal |= FR;
+
+	// clock out all 1's for TL and BR partitions. First 16 bits aren't visible.
+    for (XSCL = 0; XSCL < 256; XSCL ++) {
+        temp = portVal;
+        if ((XSCL >= 16) && (XSCL < 256))
+            temp |= BIT_D0 | BIT_D3;
+
+        temp |= BIT_XSCL;
+        *PORT = temp;
+        SDK_DelayAtLeastUs(1U, cpuFreq);
+
+        // Data latched on falling edge of XSCL
+        temp &= ~BIT_XSCL;
+        *PORT = temp;
+        SDK_DelayAtLeastUs(1U, cpuFreq);
+    }
+
+    while (1) {
         for (YSCL = 1; YSCL < 102; YSCL ++) {
             portVal = *PORT;
-            portVal &= ~(BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI);
+            portVal &= ~(BIT_ALL);
             portVal |= FR;
+            *PORT = portVal;
+
+            SDK_DelayAtLeastUs(100U, cpuFreq);
+
+            // at end of row, advance the row clock (YSCL)
+            portVal = *PORT;
+            portVal &= ~(BIT_DI | BIT_YSCL);
+            if (YSCL <= 4) {
+                portVal |= BIT_DI;
+            }
+            *PORT = portVal;
+            SDK_DelayAtLeastUs(1U, cpuFreq);
+
+            // data latched on rising edge of YSCL
+            portVal |= BIT_YSCL;
+            *PORT = portVal;
+            SDK_DelayAtLeastUs(1U, cpuFreq);
+        }  // for (YSCL)
+        FR ^= BIT_FR;
+    }  // while (1)
+}
+
+
+void checker() {
+    register uint32_t portVal;
+    register uint32_t temp;
+
+    BIT_ALL = BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI;
+
+    while (1) {
+        for (YSCL = 1; YSCL < 102; YSCL ++) {
+            portVal = *PORT;
+            portVal &= ~(BIT_ALL);
+            portVal |= FR;
+
         	// foreach line clock out a 2x2 pattern. First 16 bits aren't visible.
             for (XSCL = 0; XSCL < 256; XSCL ++) {
                 temp = portVal;
@@ -295,10 +358,9 @@ void loop() {
             portVal |= BIT_YSCL;
             *PORT = portVal;
             SDK_DelayAtLeastUs(1U, cpuFreq);
-
-            FR ^= BIT_FR;
-        }
-    }
+        }  // for (YSCL)
+        FR ^= BIT_FR;
+    }  // while (1)
 }
 
 const char testString[] = "\001This is a test.\002 ";
@@ -322,34 +384,44 @@ void text() {
     register uint32_t portVal;
     register uint32_t temp;
     int refresh = 0;
+    BIT_ALL = BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI;
 
     while (1) {
 
         for (YSCL = 0; YSCL < 101; YSCL ++) {
             portVal = *PORT;
-            portVal &= ~(BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI);
+            portVal &= ~(BIT_ALL);
             portVal |= FR;
         	// Output a test string.
             for (XSCL = 0; XSCL < 256; XSCL ++) {
                 temp = portVal;
                 if (XSCL >= 16)
                 {
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
+                	register unsigned int xmask = (1 << XSCL % 8);
+
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, YSCL / 8)][YSCL % 8] & xmask)
 						temp |= BIT_D0;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, YSCL / 8)][YSCL % 8] & xmask)
 						temp |= BIT_D1;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, (YSCL + 100) / 8)][(YSCL + 100) % 8] & (1 << (XSCL % 8)))
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, (YSCL + 100) / 8)][(YSCL + 100) % 8] & xmask)
 						temp |= BIT_D2;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, (YSCL + 100) / 8)][(YSCL + 100) % 8] & (1 << (XSCL % 8)))
+                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, (YSCL + 100) / 8)][(YSCL + 100) % 8] & xmask)
 						temp |= BIT_D3;
                 }
 
                 temp |= BIT_XSCL;
                 *PORT = temp;
-                SDK_DelayAtLeastUs(1U, cpuFreq);
+//                SDK_DelayAtLeastUs(1U, cpuFreq);
+                // do some work to delay a bit
+            	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
+					temp |= BIT_D0;
+
+            	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, YSCL / 8)][YSCL % 8] & (1 << (XSCL % 8)))
+					temp |= BIT_D1;
+            	// end delay
 
                 // Data latched on falling edge of XSCL
                 temp &= ~BIT_XSCL;
@@ -371,14 +443,17 @@ void text() {
             portVal |= BIT_YSCL;
             *PORT = portVal;
             SDK_DelayAtLeastUs(1U, cpuFreq);
+
+            // toggle refresh signal
+            refresh ++;
+            if (refresh == 33)
+            {
+                FR ^= BIT_FR;
+                refresh = 0;
+            }
+
         } // for (YSCL)
 
-        refresh ++;
-        if (refresh == 1)
-        {
-            FR ^= BIT_FR;
-            refresh = 0;
-        }
     } // while (1)
 }
 
