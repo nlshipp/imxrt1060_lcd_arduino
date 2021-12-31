@@ -372,7 +372,7 @@ const char loremIpsum[] = "\002Lorem ipsum dolor sit amet, consectetur adipiscin
 const int testLen = sizeof(testString);
 const int loremLen = sizeof(loremIpsum);
 
-char testChar(unsigned int x, unsigned y)
+__attribute__((always_inline)) inline char testChar(unsigned int x, unsigned y)
 {
 	if (y * 60 + x < loremLen)
 		return loremIpsum[y * 60 + x];
@@ -398,17 +398,20 @@ void text() {
                 if (XSCL >= 16)
                 {
                 	register unsigned int xmask = (1 << XSCL % 8);
+                	register unsigned int xoffset = (XSCL - 16) / 8;
+                	register unsigned int yidx1 = YSCL % 8;
+                	register unsigned int yidx2 = (YSCL + 100) % 8;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, YSCL / 8)][YSCL % 8] & xmask)
+                	if (font8x8_basic[(int)testChar(xoffset, YSCL / 8)][yidx1] & xmask)
 						temp |= BIT_D0;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, YSCL / 8)][YSCL % 8] & xmask)
+                	if (font8x8_basic[(int)testChar(xoffset + 30, YSCL / 8)][yidx1] & xmask)
 						temp |= BIT_D1;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8, (YSCL + 100) / 8)][(YSCL + 100) % 8] & xmask)
+                	if (font8x8_basic[(int)testChar(xoffset, (YSCL + 100) / 8)][yidx2] & xmask)
 						temp |= BIT_D2;
 
-                	if (font8x8_basic[(int)testChar((XSCL - 16) / 8 + 30, (YSCL + 100) / 8)][(YSCL + 100) % 8] & xmask)
+                	if (font8x8_basic[(int)testChar(xoffset + 30, (YSCL + 100) / 8)][yidx2] & xmask)
 						temp |= BIT_D3;
                 }
 
