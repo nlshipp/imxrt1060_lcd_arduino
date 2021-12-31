@@ -240,6 +240,7 @@ BOARD_InitPins:
   - {pin_num: G10, peripheral: GPIO1, signal: 'gpio_io, 11', pin_signal: GPIO_AD_B0_11, direction: OUTPUT}
   - {pin_num: J11, peripheral: FLEXIO3, signal: 'IO, 00', pin_signal: GPIO_AD_B1_00, identifier: CSI_I2C_SCL, direction: OUTPUT, hysteresis_enable: Disable, pull_up_down_config: Pull_Down_100K_Ohm,
     pull_keeper_select: Keeper, speed: MHZ_100, drive_strength: R0_6, slew_rate: Slow}
+  - {pin_num: L6, peripheral: GPIO5, signal: 'gpio_io, 00', pin_signal: WAKEUP, direction: INPUT}
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS ***********
  */
 
@@ -251,6 +252,7 @@ BOARD_InitPins:
  * END ****************************************************************************************************************/
 void BOARD_InitPins(void) {
   CLOCK_EnableClock(kCLOCK_Iomuxc);           /* iomuxc clock (iomuxc_clk_enable): 0x03U */
+  CLOCK_EnableClock(kCLOCK_IomuxcSnvs);       /* iomuxc_snvs clock (iomuxc_snvs_clk_enable): 0x03U */
 
   /* GPIO configuration of TDI on GPIO_AD_B0_09 (pin F14) */
   gpio_pin_config_t TDI_config = {
@@ -324,6 +326,15 @@ void BOARD_InitPins(void) {
   /* Initialize GPIO functionality on GPIO_AD_B1_08 (pin H13) */
   GPIO_PinInit(GPIO1, 24U, &CSI_D9_config);
 
+  /* GPIO configuration of SD_PWREN on WAKEUP (pin L6) */
+  gpio_pin_config_t SD_PWREN_config = {
+      .direction = kGPIO_DigitalInput,
+      .outputLogic = 0U,
+      .interruptMode = kGPIO_NoIntmode
+  };
+  /* Initialize GPIO functionality on WAKEUP (pin L6) */
+  GPIO_PinInit(GPIO5, 0U, &SD_PWREN_config);
+
   IOMUXC_SetPinMux(
       IOMUXC_GPIO_AD_B0_09_GPIO1_IO09,        /* GPIO_AD_B0_09 is configured as GPIO1_IO09 */
       0U);                                    /* Software Input On Field: Input Path is determined by functionality */
@@ -355,6 +366,9 @@ void BOARD_InitPins(void) {
     (~(IOMUXC_GPR_GPR26_GPIO_MUX1_GPIO_SEL_MASK))) /* Mask bits to zero which are setting */
       | IOMUXC_GPR_GPR26_GPIO_MUX1_GPIO_SEL(0x00U) /* GPIO1 and GPIO6 share same IO MUX function, GPIO_MUX1 selects one GPIO function: 0x00U */
     );
+  IOMUXC_SetPinMux(
+      IOMUXC_SNVS_WAKEUP_GPIO5_IO00,          /* WAKEUP is configured as GPIO5_IO00 */
+      0U);                                    /* Software Input On Field: Input Path is determined by functionality */
   IOMUXC_SetPinConfig(
       IOMUXC_GPIO_AD_B1_00_FLEXIO3_FLEXIO00,  /* GPIO_AD_B1_00 PAD functional properties : */
       0x10B0U);                               /* Slew Rate Field: Slow Slew Rate

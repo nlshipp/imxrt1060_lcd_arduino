@@ -78,14 +78,11 @@ static void flexio_pwm_init(uint32_t freq_Hz, uint32_t duty);
  */
 static void flexio_pwm_start(void);
 
+inline void fiveCycleDelay(uint32_t count);
 
 extern volatile uint32_t g_systickCounter;
 
 extern const unsigned char font8x8_basic[128][8];
-
-/* The PIN status */
-volatile bool g_pinSet = false;
-
 
 #define EXAMPLE_SEMC_START_ADDRESS (0x80000000U)
 
@@ -155,6 +152,8 @@ uint32_t BIT_D3;
 uint32_t BIT_FR;
 uint32_t BIT_ALL;
 
+uint32_t refresh = 0;
+
 int main(void) {
 
     flexio_config_t fxioUserConfig;
@@ -223,27 +222,6 @@ int main(void) {
     flexio_pwm_init(DEMO_FLEXIO_FREQUENCY, 50);
     flexio_pwm_start();
 
-#if 0
-    i = 1;
-    pin = 0;
-    while (1)
-    {
-        /* Delay 10 ms */
-//        SysTick_DelayTicks(10U);
-        if (g_pinSet)
-        {
-            GPIO_PinWrite(GPIO1, pins[pin], 0U);
-            g_pinSet = false;
-        }
-        else
-        {
-            GPIO_PinWrite(GPIO1, pins[pin], 1U);
-            g_pinSet = true;
-        }
-//        *ptr++ = i++;
-    }
-#endif
-
     loop();
 
     return 0 ;
@@ -258,15 +236,19 @@ int main(void) {
  * SDK_DelayAtLeastUs(1, cpuFreq) should delay 0.25us if cpuFreq is multiplied by 4
  */
 void loop() {
-//	black();
+    while (1)
+    {
+        black();
 //  checker();
-	text();
+        text();
+    }
 }
 
 void black() {
     register uint32_t portVal;
     register uint32_t temp;
 
+    refresh = 0;
     BIT_ALL = BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI;
 
     portVal = *PORT;
@@ -289,19 +271,20 @@ void black() {
         SDK_DelayAtLeastUs(1U, cpuFreq);
     }
 
-    while (1) {
-        for (YSCL = 1; YSCL < 102; YSCL ++) {
-            portVal = *PORT;
+    // loop while user button (sw8) is not pressed
+    while (GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN)) {
+        for (YSCL = 0; YSCL < 100; YSCL ++) {
+        	portVal = *PORT;
             portVal &= ~(BIT_ALL);
             portVal |= FR;
             *PORT = portVal;
 
-            SDK_DelayAtLeastUs(100U, cpuFreq);
+            SDK_DelayAtLeastUs(200U, cpuFreq);
 
             // at end of row, advance the row clock (YSCL)
             portVal = *PORT;
             portVal &= ~(BIT_DI | BIT_YSCL);
-            if (YSCL <= 4) {
+            if (YSCL < 1) {
                 portVal |= BIT_DI;
             }
             *PORT = portVal;
@@ -312,8 +295,39 @@ void black() {
             *PORT = portVal;
             SDK_DelayAtLeastUs(1U, cpuFreq);
         }  // for (YSCL)
-        FR ^= BIT_FR;
+
+        // toggle refresh signal
+        refresh ++;
+        if (refresh == 2)
+        {
+            FR ^= BIT_FR;
+            refresh = 0;
+        }
     }  // while (1)
+
+    // advance the row clock (YSCL) to deactivate the line strobe
+    portVal = *PORT;
+    portVal &= ~(BIT_DI | BIT_YSCL);
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+    // data latched on rising edge of YSCL
+    portVal |= BIT_YSCL;
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+    portVal = *PORT;
+    portVal &= ~(BIT_DI | BIT_YSCL);
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+    // data latched on rising edge of YSCL
+    portVal |= BIT_YSCL;
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+
+    while (!GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN));
 }
 
 
@@ -321,6 +335,7 @@ void checker() {
     register uint32_t portVal;
     register uint32_t temp;
 
+    refresh = 0;
     BIT_ALL = BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI;
 
     while (1) {
@@ -366,7 +381,7 @@ void checker() {
 const char testString[] = "\001This is a test.\002 ";
 const char loremIpsum[] = "\002Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque congue dolor augue, ac accumsan nunc luctus sit amet. Aenean vulputate id sapien sed eleifend. Curabitur et accumsan tortor. Vivamus finibus magna ac sapien congue, vitae ullamcorper urna sollicitudin. Pellentesque semper ornare tincidunt. Quisque id efficitur ipsum. Nulla facilisi. Maecenas vitae tellus a odio tempor semper eu eget lectus. Mauris hendrerit cursus laoreet. Integer vel ligula orci. Nam accumsan nisl porta mi lobortis, at accumsan lorem luctus. Sed ac iaculis orci. Phasellus semper tincidunt enim vel volutpat. Mauris pharetra, lectus sit amet euismod viverra, est nisl maximus nisl, in pulvinar nulla ligula quis dolor. Nam efficitur dui sem, quis dapibus lectus semper a. "
 		"In convallis tincidunt vehicula. Donec sit amet ligula consequat, egestas odio et, posuere nisl. Vestibulum sollicitudin ante quis posuere auctor. Nunc risus orci, lobortis id eros in, tristique elementum justo. Duis ut lacus vitae orci laoreet luctus. Curabitur eu lectus eu odio sagittis commodo. Curabitur rutrum faucibus accumsan. Nunc felis orci, consectetur sit amet ipsum sed, congue elementum felis. "
-		"Vivamus egestas pharetra nisi, eget semper dui commodo in. Duis vel enim placerat erat lobortis semper. Etiam non odio sit amet ex convallis tempor ac vitae neque. Ut hendrerit augue in cursus tempor. Integer viverra tellus eget nisl accumsan pharetra. Praesent lacinia congue magna ut volutpat. Suspendisse nec lobortis tellus, eu imperdiet erat. Phasellus euismod lectus ut sem gravida, eu vestibulum velit condimentum. Quisque sodales eu turpis ultrices mattis. Ut laoreet at felis vel cursus. "
+		"Vivamus egestas pharetra nisi, eget semper dui commodo in. Duis vel enim placerat erat lobortis semper. Etiam non odio sit amet ex convallis tempor ac vitae neque. Ut hendrerit augue in cursus tempor. Integer viverra tellus eget nisl accumsan pharetra. Praesent lacinia congue magna ut volutpat. Suspendisse nec lobortis tellus, eu\002imperdiet erat. Phasellus euismod lectus ut sem gravida, eu vestibulum velit condimentum. Quisque sodales eu turpis ultrices mattis. Ut laoreet at felis vel cursus. "
 		"Aenean commodo sollicitudin mauris, quis auctor leo molestie ut. Proin ut ultrices tellus. Nunc diam augue, volutpat non elementum a, facilisis a nisl. Quisque euismod vulputate est, a semper quam luctus vel. Aenean at tellus felis. Fusce nec quam non sem laoreet tempor. Aliquam viverra sagittis risus. Pellentesque vehicula est et neque luctus aliquet. Aliquam non sem metus. Vestibulum a nulla quis odio venenatis sagittis. Vivamus ac quam dapibus sapien feugiat tincidunt. Morbi faucibus, nulla consectetur mollis imperdiet, felis justo laoreet enim, id tincidunt purus felis et tellus. Suspendisse aliquet neque nec leo faucibus pretium. Sed eu leo non nunc tristique iaculis eget vitae justo. Praesent pretium ligula ut lectus mattis accumsan. "
 		"Nam efficitur, tortor quis ornare lacinia, enim massa fermentum eros, nec pretium sem tortor nec risus. Duis quam lectus, eleifend placerat lacus malesuada, mattis ultrices ligula. Integer molestie metus vitae rutrum lacinia. Aliquam tempor enim odio, at vehicula lectus dapibus ac. Fusce at lacus ligula. Quisque consectetur elementum enim, at gravida est sollicitudin nec. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nam et pharetra lacus. Phasellus semper nec erat vitae eleifend. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse lacinia eu dolor ut hendrerit. Proin quis finibus purus. Donec rhoncus, augue quis vulputate rutrum, dolor odio tincidunt felis, vel feugiat ex enim faucibus ligula. Morbi fringilla odio turpis, a imperdiet nibh suscipit sed. Donec arcu mauris, rutrum a lorem ac, mattis suscipit felis. Sed non maximus velit, sed ultrices orci.";
 const int testLen = sizeof(testString);
@@ -399,11 +414,12 @@ __attribute__((always_inline)) inline void fiveCycleDelay(uint32_t count)
 void text() {
     register uint32_t portVal;
     register uint32_t temp;
-    int refresh = 0;
+
+    refresh = 0;
     BIT_ALL = BIT_FR | BIT_XSCL | BIT_YSCL | BIT_D0 | BIT_D1 | BIT_D2 | BIT_D3 | BIT_DI;
 
-    while (1) {
-
+    while (GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN))
+    {
         for (YSCL = 0; YSCL < 100; YSCL ++) {
             portVal = *PORT;
             portVal &= ~(BIT_ALL);
@@ -471,6 +487,30 @@ void text() {
         } // for (YSCL)
 
     } // while (1)
+
+    // advance the row clock (YSCL) to deactivate the line strobe
+    portVal = *PORT;
+    portVal &= ~(BIT_DI | BIT_YSCL);
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+    // data latched on rising edge of YSCL
+    portVal |= BIT_YSCL;
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+    portVal = *PORT;
+    portVal &= ~(BIT_DI | BIT_YSCL);
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+    // data latched on rising edge of YSCL
+    portVal |= BIT_YSCL;
+    *PORT = portVal;
+    fiveCycleDelay(5);
+
+
+    while (!GPIO_PinRead(BOARD_INITPINS_SD_PWREN_GPIO, BOARD_INITPINS_SD_PWREN_PIN));
 }
 
 // Constant: font8x8_basic

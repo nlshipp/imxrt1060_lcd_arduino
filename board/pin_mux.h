@@ -82,6 +82,11 @@ void BOARD_InitBootPins(void);
 #define BOARD_INITPINS_CSI_I2C_SCL_SIGNAL                                     IO   /*!< FLEXIO3 signal: IO */
 #define BOARD_INITPINS_CSI_I2C_SCL_CHANNEL                                    0U   /*!< FLEXIO3 IO channel: 00 */
 
+/* WAKEUP (coord L6), SD_PWREN */
+#define BOARD_INITPINS_SD_PWREN_GPIO                                       GPIO5   /*!< GPIO device name: GPIO5 */
+#define BOARD_INITPINS_SD_PWREN_PORT                                       GPIO5   /*!< PORT device name: GPIO5 */
+#define BOARD_INITPINS_SD_PWREN_PIN                                           0U   /*!< GPIO5 pin index: 0 */
+
 
 /*!
  * @brief Configures pin routing and optionally pin electrical features.
